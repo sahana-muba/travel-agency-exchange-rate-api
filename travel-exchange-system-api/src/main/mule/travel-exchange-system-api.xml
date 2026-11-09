@@ -1,23 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ab1686ee-1b3c-4028-ada0-04959f4f9605" >
-		<http:listener-connection host="0.0.0.0" port="8084" />
-	</http:listener-config>
-	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="07570ef0-efe1-4cfe-8a1e-fd35151abb5f" >
-		<http:request-connection protocol="HTTPS" host="v6.exchangerate-api.com" port="443" />
-	</http:request-config>
-	<flow name="travel-exchange-system-apiFlow" doc:id="c90d70a4-e8d8-4c31-9014-ea7e03c1092b" >
-		<http:listener doc:name="Listener" doc:id="b6291cce-89b2-45c4-bda9-cec00c603616" config-ref="HTTP_Listener_config" path="/exchange/{currency}"/>
-		<set-variable value="#[attributes.uriParams.currency]" doc:name="Set Variable" doc:id="3a853528-0564-41e6-b7de-d19b7b905dfb" variableName="currency"/>
-		<http:request method="GET" doc:name="Request" doc:id="342cd191-617e-4641-8b17-56d994fee150" config-ref="HTTP_Request_configuration" path="/v6/5a07d10d7529572ccc1f5def/latest/USD"/>
-		<ee:transform doc:name="Transform Message" doc:id="05b4573e-6ad3-4543-8f63-9179109171aa" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+      http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+      http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+      http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config"
+                          doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0"
+                                  port="${http.port}"/>
+    </http:listener-config>
+
+    <http:request-config name="HTTP_Request_configuration"
+                         doc:name="HTTP Request configuration">
+        <http:request-connection
+            protocol="HTTPS"
+            host="v6.exchangerate-api.com"
+            port="443"/>
+    </http:request-config>
+
+    <!-- Load application properties -->
+    <configuration-properties file="application.properties"/>
+
+    <flow name="travel-exchange-system-apiFlow">
+
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/exchange/{currency}"/>
+
+        <set-variable
+            value="#[attributes.uriParams.currency]"
+            doc:name="Set Variable"
+            variableName="currency"/>
+
+        <http:request
+            method="GET"
+            doc:name="Request"
+            config-ref="HTTP_Request_configuration"
+            path="#['/v6/' ++ p('exchangerate.api.key') ++ '/latest/USD']"/>
+
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[
+%dw 2.0
 output application/json
 var currency = vars.currency
 ---
@@ -25,9 +56,14 @@ var currency = vars.currency
     localCurrency: currency,
     exchangeRateAgainstUSD: payload.conversion_rates[currency]
 }
-]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<logger level="INFO" doc:name="Logger" doc:id="69808683-d036-4eeb-9c27-af50e0ae4d5b" message="#[attributes.uriParams.currency]"/>
-	</flow>
+                ]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <logger
+            level="INFO"
+            doc:name="Logger"
+            message="#['Exchange rate retrieved for ' ++ vars.currency]"/>
+
+    </flow>
 </mule>
